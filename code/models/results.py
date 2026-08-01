@@ -13,6 +13,8 @@ class NormalizedMessage:
     dates: List[str]
     times: List[str]
     entities: List[str]
+    modality: str = "text"
+    extracted_text: str = ""
 
 @dataclass(frozen=True)
 class RetrievedEvidence:

@@ -21,7 +21,7 @@ from models.state import RoutingContext
 def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
     print(f"Loading datasets from {dataset_path}...")
     loader = DataLoader(dataset_path)
-    normalizer = MessageNormalizer()
+    normalizer = MessageNormalizer(dataloader=loader)
     
     # Initialize Services
     risk_svc = RiskService()
