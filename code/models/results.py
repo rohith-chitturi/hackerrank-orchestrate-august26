@@ -49,6 +49,12 @@ class PreferenceProfile:
     business_affinity: Dict[str, float]
 
 @dataclass(frozen=True)
+class FatigueAssessment:
+    is_fatigued: bool
+    dnd_active: bool
+    reason: str
+
+@dataclass(frozen=True)
 class Decision:
     intent: str
     category: str

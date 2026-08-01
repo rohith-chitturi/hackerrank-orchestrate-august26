@@ -13,18 +13,25 @@ from services.risk_service import RiskService
 from services.trust_service import TrustService
 from services.urgency_service import UrgencyService
 from services.preference_service import PreferenceService
+from services.fatigue_service import FatigueService
+from engines.decision_engine import DecisionEngine
 from models.domain import Message
 from models.state import RoutingContext
-from models.results import Decision
 
 def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
     print(f"Loading datasets from {dataset_path}...")
     loader = DataLoader(dataset_path)
     normalizer = MessageNormalizer()
+    
+    # Initialize Services
     risk_svc = RiskService()
     trust_svc = TrustService()
     urgency_svc = UrgencyService()
     pref_svc = PreferenceService()
+    fatigue_svc = FatigueService()
+    
+    # Initialize Engines
+    decision_engine = DecisionEngine()
     
     print(f"Reading incoming messages stream from {input_csv}...")
     messages_csv = os.path.join(dataset_path, input_csv)
@@ -54,6 +61,9 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         preference_profile = pref_svc.evaluate(ctx)
         ctx = dataclasses.replace(ctx, preference_profile=preference_profile)
         
+        fatigue_assessment = fatigue_svc.evaluate(ctx)
+        ctx = dataclasses.replace(ctx, fatigue_assessment=fatigue_assessment)
+        
         trust_result = trust_svc.evaluate(ctx)
         ctx = dataclasses.replace(ctx, trust_result=trust_result)
         
@@ -64,45 +74,20 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         ctx = dataclasses.replace(ctx, risk_assessment=risk_assessment)
         
         # 4. Decision Engine (Deterministic Fusion)
-        action = "digest" if msg.group_id else "notify"
-        reason = f"Stub decision: Fallback default rule applied for {msg.conversation_type}."
+        decision = decision_engine.evaluate(ctx)
+        ctx = dataclasses.replace(ctx, final_decision=decision)
         
-        # Preference overrides
-        if msg.group_id and msg.group_id in ctx.preference_profile.muted_groups:
-            action = "mute"
-            reason = "PreferenceService Override: User explicitly muted this group."
-            
-        if msg.business_id and msg.conversation_type == "business":
-            if not ctx.preference_profile.likes_promotions:
-                action = "digest"
-                reason = "PreferenceService Override: User opted out of promotions."
+        # 5. Output strictly conforms to requirements
+        # Extract comma-separated evidence IDs (handling "none")
+        evidence_str = ",".join(decision.evidence) if decision.evidence and decision.evidence != ["none"] else "none"
         
-        # Trust override for highly trusted businesses
-        if ctx.trust_result.score >= 80.0 and msg.business_id:
-            action = "notify"
-            reason = f"TrustService Override: {ctx.trust_result.reasons}"
-            
-        # Urgency override forces notifications for time-sensitive messages
-        if ctx.urgency_assessment.score >= 50.0:
-            action = "notify"
-            reason = f"UrgencyService Override: detected {ctx.urgency_assessment.keywords}"
-            
-        # Risk override (highest priority deterministic rule)
-        if ctx.risk_assessment.level == "HIGH":
-            action = "mute"
-            reason = f"RiskService Override: {ctx.risk_assessment.flags}"
-            
-        confidence = 0.5
-        evidence = "none"
-        
-        # Output strictly conforms to requirements
         results.append({
             "message_id": msg.message_id,
-            "action": action,
-            "message_type": "unknown",
-            "reason": reason,
-            "confidence": confidence,
-            "evidence_message_ids": evidence
+            "action": decision.action,
+            "message_type": decision.category,
+            "reason": decision.reason,
+            "confidence": decision.confidence,
+            "evidence_message_ids": evidence_str
         })
         
     output_path = os.path.join(dataset_path, output_csv)
