@@ -98,8 +98,8 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
             final_reason = decision.reason
         
         # 6. Output strictly conforms to requirements
-        # Extract comma-separated evidence IDs (handling "none")
-        evidence_str = ",".join(decision.evidence) if decision.evidence and decision.evidence != ["none"] else "none"
+        # Extract semicolon-separated evidence IDs (handling "none")
+        evidence_str = ";".join(decision.evidence) if decision.evidence and decision.evidence != ["none"] else "none"
         
         results.append({
             "message_id": msg.message_id,
