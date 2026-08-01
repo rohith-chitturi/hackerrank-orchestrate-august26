@@ -10,15 +10,17 @@ sys.path.append(os.path.dirname(__file__))
 from core.dataloader import DataLoader
 from core.normalizer import MessageNormalizer
 from services.risk_service import RiskService
+from services.trust_service import TrustService
 from models.domain import Message
 from models.state import RoutingContext
-from models.results import TrustResult, Decision
+from models.results import Decision
 
 def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
     print(f"Loading datasets from {dataset_path}...")
     loader = DataLoader(dataset_path)
     normalizer = MessageNormalizer()
     risk_svc = RiskService()
+    trust_svc = TrustService()
     
     print(f"Reading incoming messages stream from {input_csv}...")
     messages_csv = os.path.join(dataset_path, input_csv)
@@ -39,22 +41,29 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
             normalized_message=normalizer.normalize(msg),
             user=loader.get_user(msg.user_id),
             group=loader.get_group(msg.group_id) if msg.group_id else None,
-            business=loader.get_business(msg.business_id) if msg.business_id else None,
-            trust_result=TrustResult(score=50.0, reasons=["Stub"], signals=[])
+            business=loader.get_business(msg.business_id) if msg.business_id else None
         )
         
-        # 3. Compute Risk (Immutable state update)
+        # 3. Compute Features (Immutable state update)
+        trust_result = trust_svc.evaluate(ctx)
+        ctx = dataclasses.replace(ctx, trust_result=trust_result)
+        
         risk_assessment = risk_svc.evaluate(ctx)
         ctx = dataclasses.replace(ctx, risk_assessment=risk_assessment)
         
-        # 4. Decision Engine (MVP + Risk Override)
+        # 4. Decision Engine (Deterministic Fusion)
         action = "digest" if msg.group_id else "notify"
-        reason = f"Stub decision: Fallback default rule applied for conversation type {msg.conversation_type}."
+        reason = f"Stub decision: Fallback default rule applied for {msg.conversation_type}."
         
-        # Override if high risk
+        # Trust override for highly trusted businesses
+        if ctx.trust_result.score >= 80.0 and msg.business_id:
+            action = "notify"
+            reason = f"TrustService Override: {ctx.trust_result.reasons}"
+            
+        # Risk override (highest priority deterministic rule)
         if ctx.risk_assessment.level == "HIGH":
             action = "mute"
-            reason = f"Overridden by RiskService: {ctx.risk_assessment.flags}"
+            reason = f"RiskService Override: {ctx.risk_assessment.flags}"
             
         confidence = 0.5
         evidence = "none"
