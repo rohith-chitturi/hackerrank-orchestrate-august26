@@ -55,11 +55,18 @@ class FatigueAssessment:
     reason: str
 
 @dataclass(frozen=True)
+class ValidationResult:
+    status: str  # "APPROVED" or "OVERRIDDEN"
+    reason: str
+    new_action: Optional[str] = None
+
+@dataclass(frozen=True)
 class Decision:
     intent: str
     category: str
     priority: str
     action: str
     confidence: float
+    confidence_band: str
     reason: str
     evidence: List[str]

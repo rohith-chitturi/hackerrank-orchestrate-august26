@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 from models.domain import User, Group, Business, Message, GroupMember, UserBusinessHistory
-from models.results import RetrievedEvidence, TrustResult, RiskAssessment, UrgencyAssessment, PreferenceProfile, Decision, NormalizedMessage, FatigueAssessment
+from models.results import RetrievedEvidence, TrustResult, RiskAssessment, UrgencyAssessment, PreferenceProfile, Decision, NormalizedMessage, FatigueAssessment, ValidationResult
 
 @dataclass(frozen=True)
 class RoutingContext:
@@ -24,6 +24,7 @@ class RoutingContext:
     preference_profile: Optional[PreferenceProfile] = None
     fatigue_assessment: Optional[FatigueAssessment] = None
     notification_load_today: Optional[int] = None
+    validation_result: Optional[ValidationResult] = None
     
     # 4. Observability & Debugging
     observability_metrics: Dict[str, float] = field(default_factory=dict)

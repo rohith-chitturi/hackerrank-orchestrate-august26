@@ -30,6 +30,9 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
     pref_svc = PreferenceService()
     fatigue_svc = FatigueService()
     
+    from services.llm_validator_service import LLMValidatorService
+    llm_validator = LLMValidatorService()
+    
     from services.retrieval_service import RetrievalService
     print("Building BM25 Index for historical messages...")
     retrieval_svc = RetrievalService(loader.load_message_history())
@@ -84,15 +87,22 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         decision = decision_engine.evaluate(ctx)
         ctx = dataclasses.replace(ctx, final_decision=decision)
         
-        # 5. Output strictly conforms to requirements
+        # 5. LLM Validator
+        validation_result = llm_validator.evaluate(ctx)
+        ctx = dataclasses.replace(ctx, validation_result=validation_result)
+        
+        final_action = validation_result.new_action if validation_result.status == "OVERRIDDEN" and validation_result.new_action else decision.action
+        final_reason = f"{decision.reason} | {validation_result.reason}"
+        
+        # 6. Output strictly conforms to requirements
         # Extract comma-separated evidence IDs (handling "none")
         evidence_str = ",".join(decision.evidence) if decision.evidence and decision.evidence != ["none"] else "none"
         
         results.append({
             "message_id": msg.message_id,
-            "action": decision.action,
+            "action": final_action,
             "message_type": decision.category,
-            "reason": decision.reason,
+            "reason": final_reason,
             "confidence": decision.confidence,
             "evidence_message_ids": evidence_str
         })

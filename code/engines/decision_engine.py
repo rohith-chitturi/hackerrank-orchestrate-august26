@@ -61,12 +61,22 @@ class DecisionEngine:
         # 6. Evidence Extraction
         evidence = [ev.message_id for ev in ctx.retrieved_evidence] if ctx.retrieved_evidence else ["none"]
         
+        if confidence >= 0.9:
+            confidence_band = "VERY_HIGH"
+        elif confidence >= 0.75:
+            confidence_band = "HIGH"
+        elif confidence >= 0.6:
+            confidence_band = "MEDIUM"
+        else:
+            confidence_band = "LOW"
+            
         return Decision(
             intent="unknown",
             category="unknown",
             priority="unknown",
             action=action,
             confidence=confidence,
+            confidence_band=confidence_band,
             reason=reason,
             evidence=evidence
         )
