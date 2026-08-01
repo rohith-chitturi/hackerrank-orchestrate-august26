@@ -58,8 +58,8 @@ class DecisionEngine:
             reason = f"Risk: High risk detected ({ctx.risk_assessment.flags})."
             confidence = 0.95
             
-        # Evidence defaults to "none" for now until Stage 4
-        evidence = ["none"]
+        # 6. Evidence Extraction
+        evidence = [ev.message_id for ev in ctx.retrieved_evidence] if ctx.retrieved_evidence else ["none"]
         
         return Decision(
             intent="unknown",

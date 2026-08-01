@@ -30,6 +30,10 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
     pref_svc = PreferenceService()
     fatigue_svc = FatigueService()
     
+    from services.retrieval_service import RetrievalService
+    print("Building BM25 Index for historical messages...")
+    retrieval_svc = RetrievalService(loader.load_message_history())
+    
     # Initialize Engines
     decision_engine = DecisionEngine()
     
@@ -72,6 +76,9 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         
         risk_assessment = risk_svc.evaluate(ctx)
         ctx = dataclasses.replace(ctx, risk_assessment=risk_assessment)
+        
+        retrieved_evidence = retrieval_svc.retrieve(ctx)
+        ctx = dataclasses.replace(ctx, retrieved_evidence=retrieved_evidence)
         
         # 4. Decision Engine (Deterministic Fusion)
         decision = decision_engine.evaluate(ctx)
