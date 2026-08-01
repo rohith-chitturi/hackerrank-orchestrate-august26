@@ -12,6 +12,7 @@ from core.normalizer import MessageNormalizer
 from services.risk_service import RiskService
 from services.trust_service import TrustService
 from services.urgency_service import UrgencyService
+from services.preference_service import PreferenceService
 from models.domain import Message
 from models.state import RoutingContext
 from models.results import Decision
@@ -23,6 +24,7 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
     risk_svc = RiskService()
     trust_svc = TrustService()
     urgency_svc = UrgencyService()
+    pref_svc = PreferenceService()
     
     print(f"Reading incoming messages stream from {input_csv}...")
     messages_csv = os.path.join(dataset_path, input_csv)
@@ -43,10 +45,15 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
             normalized_message=normalizer.normalize(msg),
             user=loader.get_user(msg.user_id),
             group=loader.get_group(msg.group_id) if msg.group_id else None,
-            business=loader.get_business(msg.business_id) if msg.business_id else None
+            business=loader.get_business(msg.business_id) if msg.business_id else None,
+            group_member=loader.get_user_group_relationship(msg.user_id, msg.group_id) if msg.group_id else None,
+            user_business_history=loader.get_user_business_relationship(msg.user_id, msg.business_id) if msg.business_id else None
         )
         
         # 3. Compute Features (Immutable state update)
+        preference_profile = pref_svc.evaluate(ctx)
+        ctx = dataclasses.replace(ctx, preference_profile=preference_profile)
+        
         trust_result = trust_svc.evaluate(ctx)
         ctx = dataclasses.replace(ctx, trust_result=trust_result)
         
@@ -59,6 +66,16 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         # 4. Decision Engine (Deterministic Fusion)
         action = "digest" if msg.group_id else "notify"
         reason = f"Stub decision: Fallback default rule applied for {msg.conversation_type}."
+        
+        # Preference overrides
+        if msg.group_id and msg.group_id in ctx.preference_profile.muted_groups:
+            action = "mute"
+            reason = "PreferenceService Override: User explicitly muted this group."
+            
+        if msg.business_id and msg.conversation_type == "business":
+            if not ctx.preference_profile.likes_promotions:
+                action = "digest"
+                reason = "PreferenceService Override: User opted out of promotions."
         
         # Trust override for highly trusted businesses
         if ctx.trust_result.score >= 80.0 and msg.business_id:

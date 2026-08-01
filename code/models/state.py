@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
-from models.domain import User, Group, Business, Message
+from models.domain import User, Group, Business, Message, GroupMember, UserBusinessHistory
 from models.results import RetrievedEvidence, TrustResult, RiskAssessment, UrgencyAssessment, PreferenceProfile, Decision, NormalizedMessage
 
 @dataclass(frozen=True)
@@ -13,6 +13,8 @@ class RoutingContext:
     user: Optional[User] = None
     group: Optional[Group] = None
     business: Optional[Business] = None
+    group_member: Optional[GroupMember] = None
+    user_business_history: Optional[UserBusinessHistory] = None
     
     # 3. Service Outputs
     retrieved_evidence: List[RetrievedEvidence] = field(default_factory=list)
