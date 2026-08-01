@@ -6,6 +6,41 @@ from models.state import RoutingContext
 from models.results import Decision
 
 class DecisionEngine:
+    def _classify_message_type(self, ctx: RoutingContext) -> str:
+        text = ctx.normalized_message.normalized_text if ctx.normalized_message else ""
+        
+        # 1. Scam / Spam
+        if ctx.risk_assessment and ctx.risk_assessment.level == "HIGH":
+            return "scam" if "phishing" in str(ctx.risk_assessment.flags) or "domain" in str(ctx.risk_assessment.flags) else "spam"
+            
+        # 2. Payment
+        if any(kw in text for kw in ["payment", "bill", "invoice", "transfer", "otp"]):
+            return "payment"
+            
+        # 3. Promotion
+        if any(kw in text for kw in ["offer", "discount", "promo", "off today", "sale", "free"]):
+            return "promotion"
+            
+        # 4. Urgent / Event
+        if ctx.urgency_assessment and ctx.urgency_assessment.time_sensitive:
+            return "urgent"
+        if any(kw in text for kw in ["birthday", "party", "wedding", "meeting", "event"]):
+            return "event"
+            
+        # 5. Forward
+        if ctx.message.forwarded_count and int(ctx.message.forwarded_count) > 0:
+            return "forward"
+            
+        # 6. Business Update
+        if ctx.message.business_id:
+            return "business_update"
+            
+        # 7. Greeting / Personal
+        if any(kw in text for kw in ["hello", "hi", "good morning", "thanks", "welcome"]):
+            return "greeting"
+            
+        return "personal"
+
     def evaluate(self, ctx: RoutingContext) -> Decision:
         action = "notify"
         reason = "Default notify"
@@ -61,6 +96,9 @@ class DecisionEngine:
         # 6. Evidence Extraction
         evidence = [ev.message_id for ev in ctx.retrieved_evidence] if ctx.retrieved_evidence else ["none"]
         
+        # 7. Message Type Classification
+        message_type = self._classify_message_type(ctx)
+        
         if confidence >= 0.9:
             confidence_band = "VERY_HIGH"
         elif confidence >= 0.75:
@@ -72,7 +110,7 @@ class DecisionEngine:
             
         return Decision(
             intent="unknown",
-            category="unknown",
+            category=message_type,
             priority="unknown",
             action=action,
             confidence=confidence,

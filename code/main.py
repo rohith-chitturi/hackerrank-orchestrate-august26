@@ -92,7 +92,10 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         ctx = dataclasses.replace(ctx, validation_result=validation_result)
         
         final_action = validation_result.new_action if validation_result.status == "OVERRIDDEN" and validation_result.new_action else decision.action
-        final_reason = f"{decision.reason} | {validation_result.reason}"
+        if validation_result.status == "OVERRIDDEN":
+            final_reason = f"{decision.reason} | LLM Override: {validation_result.reason}"
+        else:
+            final_reason = decision.reason
         
         # 6. Output strictly conforms to requirements
         # Extract comma-separated evidence IDs (handling "none")
