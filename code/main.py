@@ -110,7 +110,11 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
             "evidence_message_ids": evidence_str
         })
         
-    output_path = os.path.join(dataset_path, output_csv)
+    if output_csv == "output.csv":
+        output_path = os.path.join(os.path.dirname(dataset_path), output_csv)
+    else:
+        output_path = os.path.join(dataset_path, output_csv)
+        
     print(f"Writing {len(results)} predictions to {output_path}...")
     output_df = pd.DataFrame(results)
     output_df.to_csv(output_path, index=False)
