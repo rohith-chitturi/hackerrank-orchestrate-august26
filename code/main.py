@@ -11,6 +11,7 @@ from core.dataloader import DataLoader
 from core.normalizer import MessageNormalizer
 from services.risk_service import RiskService
 from services.trust_service import TrustService
+from services.urgency_service import UrgencyService
 from models.domain import Message
 from models.state import RoutingContext
 from models.results import Decision
@@ -21,6 +22,7 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
     normalizer = MessageNormalizer()
     risk_svc = RiskService()
     trust_svc = TrustService()
+    urgency_svc = UrgencyService()
     
     print(f"Reading incoming messages stream from {input_csv}...")
     messages_csv = os.path.join(dataset_path, input_csv)
@@ -48,6 +50,9 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         trust_result = trust_svc.evaluate(ctx)
         ctx = dataclasses.replace(ctx, trust_result=trust_result)
         
+        urgency_assessment = urgency_svc.evaluate(ctx)
+        ctx = dataclasses.replace(ctx, urgency_assessment=urgency_assessment)
+        
         risk_assessment = risk_svc.evaluate(ctx)
         ctx = dataclasses.replace(ctx, risk_assessment=risk_assessment)
         
@@ -59,6 +64,11 @@ def run_vertical_slice(dataset_path: str, input_csv: str, output_csv: str):
         if ctx.trust_result.score >= 80.0 and msg.business_id:
             action = "notify"
             reason = f"TrustService Override: {ctx.trust_result.reasons}"
+            
+        # Urgency override forces notifications for time-sensitive messages
+        if ctx.urgency_assessment.score >= 50.0:
+            action = "notify"
+            reason = f"UrgencyService Override: detected {ctx.urgency_assessment.keywords}"
             
         # Risk override (highest priority deterministic rule)
         if ctx.risk_assessment.level == "HIGH":
